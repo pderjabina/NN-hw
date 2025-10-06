@@ -10,11 +10,10 @@ let testProbs = null;
 // -------- Schema (can be swapped for other datasets) --------
 const TARGET = 'Survived';
 const ID = 'PassengerId';
-const NUMS = ['Age', 'Fare', 'SibSp', 'Parch'];
-const CATS = ['Pclass', 'Sex', 'Embarked'];
 
 // -------- DOM wiring --------
-document.getElementById('load-data-btn').onclick = loadData;
+document.getElementById('load-bundled-btn').onclick = loadBundled;
+document.getElementById('load-data-btn').onclick = loadUploaded;
 document.getElementById('inspect-btn').onclick = inspectData;
 document.getElementById('preprocess-btn').onclick = preprocessData;
 document.getElementById('create-model-btn').onclick = createModel;
@@ -24,7 +23,6 @@ document.getElementById('export-btn').onclick = exportResults;
 
 // -------- Robust CSV parser (handles quotes, commas, CRLF, BOM) --------
 function parseCSV(text) {
-  // strip BOM & normalize EOL
   text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trim();
   const lines = text.split('\n');
 
@@ -50,8 +48,9 @@ function parseCSV(text) {
   const headers = splitLine(lines[0]).map(h => h.trim());
   const rows = [];
   for (let li = 1; li < lines.length; li++) {
-    if (!lines[li]) continue;
+    if (lines[li] === undefined || lines[li] === '') continue;
     const vals = splitLine(lines[li]).map(v => v === '' ? null : v);
+    if (vals.length !== headers.length) continue; // skip malformed lines
     const obj = {};
     headers.forEach((h, i) => {
       let v = vals[i] ?? null;
@@ -63,7 +62,7 @@ function parseCSV(text) {
   return rows;
 }
 
-// -------- File reading --------
+// -------- Loaders --------
 function readFile(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
@@ -73,22 +72,38 @@ function readFile(file) {
   });
 }
 
-async function loadData() {
+async function loadBundled() {
+  const status = document.getElementById('data-status');
+  status.textContent = 'Loading bundled CSVs...';
+  try {
+    const trainText = document.getElementById('bundled-train').textContent;
+    const testText  = document.getElementById('bundled-test').textContent;
+    trainData = parseCSV(trainText);
+    testData  = parseCSV(testText);
+    status.textContent = `Bundled data loaded. Train: ${trainData.length}, Test: ${testData.length}`;
+    document.getElementById('inspect-btn').disabled = false;
+  } catch (e) {
+    status.textContent = `Error loading bundled data: ${e.message}`;
+    console.error(e);
+  }
+}
+
+async function loadUploaded() {
   const trainFile = document.getElementById('train-file').files[0];
   const testFile  = document.getElementById('test-file').files[0];
   const status = document.getElementById('data-status');
 
   if (!trainFile || !testFile) { alert('Please upload both training and test CSV files.'); return; }
-  status.textContent = 'Loading data...';
+  status.textContent = 'Loading uploaded CSVs...';
 
   try {
     const [trainText, testText] = await Promise.all([readFile(trainFile), readFile(testFile)]);
     trainData = parseCSV(trainText);
     testData  = parseCSV(testText);
-    status.textContent = `Data loaded. Train: ${trainData.length}, Test: ${testData.length}`;
+    status.textContent = `Uploaded data loaded. Train: ${trainData.length}, Test: ${testData.length}`;
     document.getElementById('inspect-btn').disabled = false;
   } catch (e) {
-    status.textContent = `Error loading data: ${e.message}`;
+    status.textContent = `Error loading files: ${e.message}`;
     console.error(e);
   }
 }
@@ -135,7 +150,6 @@ function inspectData() {
 
   // Charts inside page
   renderSurvivalCharts();
-  document.getElementById('preprocess-btn').disabled = true; // enable after charts render (async safe)
   document.getElementById('preprocess-btn').disabled = false;
 }
 
