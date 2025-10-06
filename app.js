@@ -7,7 +7,7 @@ let valX = null, valY = null;
 let valProbs = null;
 let testProbs = null;
 
-// -------- Schema (can be swapped for other datasets) --------
+// -------- Schema --------
 const TARGET = 'Survived';
 const ID = 'PassengerId';
 
@@ -21,7 +21,7 @@ document.getElementById('train-btn').onclick = trainModel;
 document.getElementById('predict-btn').onclick = predict;
 document.getElementById('export-btn').onclick = exportResults;
 
-// -------- Robust CSV parser (handles quotes, commas, CRLF, BOM) --------
+// -------- Robust CSV parser (quotes, commas, CRLF, BOM) --------
 function parseCSV(text) {
   text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trim();
   const lines = text.split('\n');
@@ -35,11 +35,8 @@ function parseCSV(text) {
         if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
         else { inQ = !inQ; }
       } else if (ch === ',' && !inQ) {
-        out.push(cur);
-        cur = '';
-      } else {
-        cur += ch;
-      }
+        out.push(cur); cur = '';
+      } else { cur += ch; }
     }
     out.push(cur);
     return out;
@@ -50,7 +47,7 @@ function parseCSV(text) {
   for (let li = 1; li < lines.length; li++) {
     if (lines[li] === undefined || lines[li] === '') continue;
     const vals = splitLine(lines[li]).map(v => v === '' ? null : v);
-    if (vals.length !== headers.length) continue; // skip malformed lines
+    if (vals.length !== headers.length) continue; // skip malformed
     const obj = {};
     headers.forEach((h, i) => {
       let v = vals[i] ?? null;
@@ -72,22 +69,26 @@ function readFile(file) {
   });
 }
 
+// Option A: fetch train.csv & test.csv from repo root (if present)
 async function loadBundled() {
   const status = document.getElementById('data-status');
   status.textContent = 'Loading bundled CSVs...';
   try {
-    const trainText = document.getElementById('bundled-train').textContent;
-    const testText  = document.getElementById('bundled-test').textContent;
+    const [trainText, testText] = await Promise.all([
+      fetch('train.csv').then(r => { if(!r.ok) throw new Error('train.csv not found'); return r.text(); }),
+      fetch('test.csv').then(r  => { if(!r.ok) throw new Error('test.csv not found');  return r.text(); })
+    ]);
     trainData = parseCSV(trainText);
     testData  = parseCSV(testText);
     status.textContent = `Bundled data loaded. Train: ${trainData.length}, Test: ${testData.length}`;
     document.getElementById('inspect-btn').disabled = false;
   } catch (e) {
-    status.textContent = `Error loading bundled data: ${e.message}`;
+    status.textContent = `Bundled load failed: ${e.message}. Use the upload inputs below.`;
     console.error(e);
   }
 }
 
+// Option B: user uploads both files
 async function loadUploaded() {
   const trainFile = document.getElementById('train-file').files[0];
   const testFile  = document.getElementById('test-file').files[0];
@@ -146,14 +147,17 @@ function inspectData() {
   });
   miss += '</ul>';
 
-  stats.innerHTML = `<p>Shape: ${trainData.length} × ${cols}</p><p>Survival rate: ${survived}/${trainData.length} (${rate}%)</p>${miss}`;
+  stats.innerHTML = `<p>Shape: ${trainData.length} × ${cols}</p>
+                     <p>Survival rate: ${survived}/${trainData.length} (${rate}%)</p>
+                     ${miss}
+                     <p style="color:#6b7280">Next: click <b>Preprocess Data</b> → <b>Create Model</b> → <b>Train Model</b>.</p>`;
 
-  // Charts inside page
   renderSurvivalCharts();
   document.getElementById('preprocess-btn').disabled = false;
 }
 
 function renderBar(containerEl, data, opts) {
+  // tfjs-vis expects objects with "index" and "value" keys for barchart
   tfvis.render.barchart(containerEl, data, opts);
 }
 
@@ -166,7 +170,7 @@ function renderSurvivalCharts() {
     bySex[r.Sex].total++;
     if (r[TARGET] === 1) bySex[r.Sex].surv++;
   });
-  const sexData = Object.entries(bySex).map(([k, v]) => ({ x: k, y: v.total ? (v.surv / v.total * 100) : 0 }));
+  const sexData = Object.entries(bySex).map(([k, v]) => ({ index: String(k), value: v.total ? (v.surv / v.total * 100) : 0 }));
   renderBar(document.getElementById('chart-sex'), sexData, { xLabel: 'Sex', yLabel: 'Survival Rate (%)' });
 
   // Pclass
@@ -177,7 +181,7 @@ function renderSurvivalCharts() {
     byCls[r.Pclass].total++;
     if (r[TARGET] === 1) byCls[r.Pclass].surv++;
   });
-  const clsData = Object.entries(byCls).map(([k, v]) => ({ x: `Class ${k}`, y: v.total ? (v.surv / v.total * 100) : 0 }));
+  const clsData = Object.entries(byCls).map(([k, v]) => ({ index: `Class ${k}`, value: v.total ? (v.surv / v.total * 100) : 0 }));
   renderBar(document.getElementById('chart-pclass'), clsData, { xLabel: 'Passenger Class', yLabel: 'Survival Rate (%)' });
 }
 
@@ -269,200 +273,4 @@ function createModel() {
   model = tf.sequential();
   model.add(tf.layers.dense({ units:16, activation:'relu', inputShape:[pre.trainX.shape[1]] }));
   model.add(tf.layers.dense({ units:1, activation:'sigmoid' }));
-  model.compile({ optimizer:'adam', loss:'binaryCrossentropy', metrics:['accuracy'] });
-
-  const summary = document.getElementById('model-summary');
-  let txt = '<h3>Model Summary</h3><ul>';
-  model.layers.forEach((l,i)=>{ txt += `<li>Layer ${i+1}: ${l.getClassName()} — out: ${JSON.stringify(l.outputShape)}</li>`; });
-  txt += `</ul><p>Total params: ${model.countParams()}</p>`;
-  summary.innerHTML = txt;
-
-  document.getElementById('train-btn').disabled = false;
-}
-
-// -------- Train --------
-async function trainModel() {
-  if (!model || !pre.trainX) { alert('Create model first.'); return; }
-  const status = document.getElementById('training-status');
-  status.textContent = 'Training...';
-
-  // 80/20 split
-  const n = pre.trainX.shape[0];
-  const split = Math.floor(n * 0.8);
-  const featDim = pre.trainX.shape[1];
-
-  const trainX = pre.trainX.slice([0,0], [split, featDim]);
-  const trainY = pre.trainY.slice([0], [split]);
-  valX = pre.trainX.slice([split,0], [n - split, featDim]);
-  valY = pre.trainY.slice([split], [n - split]);
-
-  const vis = tfvis.show.fitCallbacks(
-    { name: 'Training Performance', tab: 'Training' },
-    ['loss','acc','val_loss','val_acc'],
-    { callbacks: ['onEpochEnd'] }
-  );
-  const early = tf.callbacks.earlyStopping({ monitor:'val_loss', patience:5, restoreBestWeight:true });
-
-  await model.fit(trainX, trainY, {
-    epochs: 50, batchSize: 32, validationData: [valX, valY],
-    callbacks: [vis, early, {
-      onEpochEnd: (epoch, logs)=> {
-        status.textContent = `Epoch ${epoch+1}/50 — loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
-      }
-    }]
-  });
-
-  status.innerHTML += '<p>Training completed.</p>';
-
-  // cache validation probs (flattened)
-  valProbs = model.predict(valX).dataSync();
-
-  const slider = document.getElementById('threshold-slider');
-  slider.disabled = true; // reset handler to avoid duplicate listeners
-  slider.oninput = null;
-  slider.disabled = false;
-  slider.oninput = updateMetrics;
-  updateMetrics();
-
-  document.getElementById('predict-btn').disabled = false;
-}
-
-// -------- Metrics & ROC --------
-function updateMetrics() {
-  if (!valProbs || !valY) return;
-  const thr = parseFloat(document.getElementById('threshold-slider').value);
-  document.getElementById('threshold-value').textContent = thr.toFixed(2);
-
-  const yTrue = Array.from(valY.dataSync());
-  const probs  = Array.from(valProbs);
-
-  let tp=0, tn=0, fp=0, fn=0;
-  for (let i=0;i<probs.length;i++){
-    const p = probs[i] >= thr ? 1 : 0;
-    const t = yTrue[i];
-    if (p===1 && t===1) tp++;
-    else if (p===0 && t===0) tn++;
-    else if (p===1 && t===0) fp++;
-    else fn++;
-  }
-
-  // Confusion matrix
-  document.getElementById('confusion-matrix').innerHTML =
-    `<table>
-      <tr><th></th><th>Predicted Positive</th><th>Predicted Negative</th></tr>
-      <tr><th>Actual Positive</th><td>${tp}</td><td>${fn}</td></tr>
-      <tr><th>Actual Negative</th><td>${fp}</td><td>${tn}</td></tr>
-     </table>`;
-
-  const precision = tp / (tp + fp) || 0;
-  const recall    = tp / (tp + fn) || 0;
-  const f1        = 2 * (precision * recall) / (precision + recall) || 0;
-  const acc       = (tp + tn) / (tp + tn + fp + fn) || 0;
-
-  document.getElementById('performance-metrics').innerHTML =
-    `<p>Accuracy: ${(acc*100).toFixed(2)}%</p>
-     <p>Precision: ${precision.toFixed(4)}</p>
-     <p>Recall: ${recall.toFixed(4)}</p>
-     <p>F1 Score: ${f1.toFixed(4)}</p>`;
-
-  plotROC(yTrue, probs);
-}
-
-function plotROC(yTrue, probs) {
-  const thresholds = Array.from({length:101}, (_,i)=> i/100);
-  const pts = thresholds.map(th=>{
-    let tp=0, fp=0, tn=0, fn=0;
-    for (let i=0;i<probs.length;i++){
-      const p = probs[i] >= th ? 1 : 0;
-      const t = yTrue[i];
-      if (t===1) { if (p===1) tp++; else fn++; }
-      else { if (p===1) fp++; else tn++; }
-    }
-    const tpr = tp / (tp + fn) || 0;
-    const fpr = fp / (fp + tn) || 0;
-    return {x: fpr, y: tpr};
-  }).sort((a,b)=>a.x-b.x);
-
-  // AUC trapezoid
-  let auc = 0;
-  for (let i=1;i<pts.length;i++){
-    const dx = pts[i].x - pts[i-1].x;
-    const mY = (pts[i].y + pts[i-1].y)/2;
-    auc += dx * mY;
-  }
-
-  tfvis.render.linechart(
-    document.getElementById('roc-chart'),
-    { values: pts, series: ['ROC'] },
-    { xLabel:'False Positive Rate', yLabel:'True Positive Rate', width:480, height:320 }
-  );
-
-  const pm = document.getElementById('performance-metrics');
-  const aucP = pm.querySelector('.auc-line');
-  const line = `<p class="auc-line">AUC: ${auc.toFixed(4)}</p>`;
-  if (aucP) aucP.outerHTML = line; else pm.innerHTML += line;
-}
-
-// -------- Predict & Export --------
-async function predict() {
-  if (!model || !pre.testX) { alert('Train model first.'); return; }
-  const out = document.getElementById('prediction-output');
-  out.textContent = 'Predicting...';
-
-  const probs = model.predict(pre.testX).dataSync();
-  testProbs = probs;
-
-  const rows = pre.testIds.map((id,i)=>({
-    PassengerId: id,
-    Survived: (probs[i] >= 0.5) ? 1 : 0,
-    Probability: probs[i]
-  }));
-
-  const table = document.createElement('table');
-  const head = document.createElement('tr');
-  ['PassengerId','Survived','Probability'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; head.appendChild(th); });
-  table.appendChild(head);
-  rows.slice(0,10).forEach(r=>{
-    const tr = document.createElement('tr');
-    ['PassengerId','Survived','Probability'].forEach(k=>{
-      const td=document.createElement('td');
-      td.textContent = (k==='Probability') ? r[k].toFixed(4) : r[k];
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  });
-
-  out.innerHTML = '<h3>Prediction Results (First 10 Rows)</h3>';
-  out.appendChild(table);
-  out.innerHTML += `<p>Total predictions: ${rows.length}</p>`;
-
-  document.getElementById('export-btn').disabled = false;
-}
-
-async function exportResults() {
-  if (!testProbs || !pre.testIds.length) { alert('Make predictions first.'); return; }
-  const status = document.getElementById('export-status');
-  status.textContent = 'Exporting...';
-
-  const sub = ['PassengerId,Survived']
-    .concat(pre.testIds.map((id,i)=>`${id},${testProbs[i] >= 0.5 ? 1 : 0}`))
-    .join('\n');
-
-  const probsCsv = ['PassengerId,Probability']
-    .concat(pre.testIds.map((id,i)=>`${id},${testProbs[i].toFixed(6)}`))
-    .join('\n');
-
-  const dl = (name, text) => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], {type:'text/csv'}));
-    a.download = name;
-    a.click();
-  };
-  dl('submission.csv', sub);
-  dl('probabilities.csv', probsCsv);
-
-  await model.save('downloads://titanic-tfjs-model');
-  status.innerHTML = `<p>Export completed.</p>
-                      <p>Saved: submission.csv, probabilities.csv</p>
-                      <p>Model downloaded as titanic-tfjs-model*</p>`;
-}
+  model.compile({ optim
