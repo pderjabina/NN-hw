@@ -36,18 +36,10 @@
 
   <section id="data-load">
     <h2>1. Data Load</h2>
-    <p>Option A: click <b>Load Bundled</b> (читает вшитые CSV ниже или файлы из корня репозитория). Option B: upload your own.</p>
-    <div>
-      <button id="load-bundled-btn">Load Bundled train/test</button>
-    </div>
-    <div>
-      <label for="train-file">Training Data (train.csv):</label>
-      <input type="file" id="train-file" accept=".csv"/>
-    </div>
-    <div>
-      <label for="test-file">Test Data (test.csv):</label>
-      <input type="file" id="test-file" accept=".csv"/>
-    </div>
+    <p><b>Готово “из коробки”:</b> просто жми <b>Load Bundled train/test</b> — данные уже встроены.</p>
+    <div><button id="load-bundled-btn">Load Bundled train/test</button></div>
+    <div><label>Training Data (train.csv):</label><input type="file" id="train-file" accept=".csv"/></div>
+    <div><label>Test Data (test.csv):</label><input type="file" id="test-file" accept=".csv"/></div>
     <button id="load-data-btn">Load Uploaded Files</button>
     <div id="data-status" style="margin-top:6px;color:var(--muted)"></div>
   </section>
@@ -67,9 +59,7 @@
     <h2>3. Preprocessing</h2>
     <button id="preprocess-btn" disabled>Preprocess Data</button>
     <div>
-      <label><input type="checkbox" id="add-family-features" checked/>
-        Add Family Features (FamilySize, IsAlone)
-      </label>
+      <label><input type="checkbox" id="add-family-features" checked/> Add Family Features (FamilySize, IsAlone)</label>
     </div>
     <div id="preprocessing-output"></div>
   </section>
@@ -95,18 +85,9 @@
       <div id="threshold-value">0.5</div>
     </div>
     <div class="metrics-container">
-      <div class="metric-card">
-        <h3>Confusion Matrix</h3>
-        <div id="confusion-matrix"></div>
-      </div>
-      <div class="metric-card">
-        <h3>Performance Metrics</h3>
-        <div id="performance-metrics"></div>
-      </div>
-      <div class="metric-card" style="flex:1;min-width:320px">
-        <h3>ROC Curve</h3>
-        <div id="roc-chart" class="chart"></div>
-      </div>
+      <div class="metric-card"><h3>Confusion Matrix</h3><div id="confusion-matrix"></div></div>
+      <div class="metric-card"><h3>Performance Metrics</h3><div id="performance-metrics"></div></div>
+      <div class="metric-card" style="flex:1;min-width:320px"><h3>ROC Curve</h3><div id="roc-chart" class="chart"></div></div>
     </div>
   </section>
 
@@ -126,22 +107,20 @@
     <h2>Deployment Notes</h2>
     <div class="note">
       <ol>
-        <li>Commit <code>index.html</code> and <code>app.js</code></li>
-        <li>(Опционально) положи рядом <code>train.csv</code> и <code>test.csv</code> — тогда “Load Bundled” возьмёт их из репозитория</li>
-        <li>Или вставь CSV прямо в теги ниже и тоже жми “Load Bundled”</li>
+        <li>Commit <code>index.html</code> и <code>app.js</code> (CSV уже встроены)</li>
         <li>Включи GitHub Pages (main / root)</li>
+        <li>Открой URL: <code>https://[user].github.io/[repo]</code></li>
       </ol>
     </div>
   </section>
 </div>
 
-<!-- ===== ВШИТЫЕ CSV (опционально). Вставь сюда содержимое файлов. =====
-     Если оставить пустыми — кнопка попробует скачать train.csv/test.csv из репозитория. -->
+<!-- ===== ВШИТЫЕ CSV (уже вставлены) ===== -->
 <script id="bundled-train" type="text/plain">
-<!-- paste train.csv content here (optional) -->
+<!-- сюда уже вставлены данные train.csv -->
 </script>
 <script id="bundled-test" type="text/plain">
-<!-- paste test.csv content here (optional) -->
+<!-- сюда уже вставлены данные test.csv -->
 </script>
 
 <script src="app.js"></script>
