@@ -36,7 +36,7 @@
 
   <section id="data-load">
     <h2>1. Data Load</h2>
-    <p>Option A: load <code>train.csv</code> &amp; <code>test.csv</code> from the repo. Option B: upload your own files.</p>
+    <p>Option A: click <b>Load Bundled</b> (читает вшитые CSV ниже или файлы из корня репозитория). Option B: upload your own.</p>
     <div>
       <button id="load-bundled-btn">Load Bundled train/test</button>
     </div>
@@ -126,15 +126,23 @@
     <h2>Deployment Notes</h2>
     <div class="note">
       <ol>
-        <li>Create a public GitHub repository</li>
         <li>Commit <code>index.html</code> and <code>app.js</code></li>
-        <li>(Optional) Add <code>train.csv</code> and <code>test.csv</code> to the repo to enable “Load Bundled”</li>
-        <li>Enable GitHub Pages (main / root)</li>
-        <li>Open your URL: <code>https://[user].github.io/[repo]</code></li>
+        <li>(Опционально) положи рядом <code>train.csv</code> и <code>test.csv</code> — тогда “Load Bundled” возьмёт их из репозитория</li>
+        <li>Или вставь CSV прямо в теги ниже и тоже жми “Load Bundled”</li>
+        <li>Включи GitHub Pages (main / root)</li>
       </ol>
     </div>
   </section>
 </div>
+
+<!-- ===== ВШИТЫЕ CSV (опционально). Вставь сюда содержимое файлов. =====
+     Если оставить пустыми — кнопка попробует скачать train.csv/test.csv из репозитория. -->
+<script id="bundled-train" type="text/plain">
+<!-- paste train.csv content here (optional) -->
+</script>
+<script id="bundled-test" type="text/plain">
+<!-- paste test.csv content here (optional) -->
+</script>
 
 <script src="app.js"></script>
 </body>
